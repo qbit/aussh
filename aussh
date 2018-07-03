@@ -68,7 +68,7 @@ fi
 
 if [ -n "${TTMUX}" ]; then
 	opts=${opts}" -oRequestTTY=yes \
-		-oRemoteCommand=\"tmux attach || tmux new\""
+		-oRemoteCommand=\"tmux attach -t ${TTMUX} || tmux new\""
 fi
 
 args=$@
