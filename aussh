@@ -153,12 +153,15 @@ ssh_bg_mktemp() {
 ssh_bg_connect() {
 	RET=''
 	ssh_bg_mktemp
-	eval nohup $_command </dev/null ${_out} || exit 1
+	eval nohup $_command </dev/null ${_out} &
+	wait
 	ssh_bg_islistening
 	while true; do
 		RET=$(ssh_bg_monitor_out)
 		if [ -n "$RET" ]; then
-			eval nohup $_command </dev/null ${_out}
+			eval nohup $_command </dev/null ${_out} &
+			wait
+			ssh_bg_islistening
 			sleep 5
 		fi
 		sleep 5
