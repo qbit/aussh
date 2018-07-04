@@ -126,6 +126,7 @@ ssh_bg_monitor_out() {
 		"Timeout, server" \
 		"Network is down" \
 		"No route to host" \
+		"Operation timed out" \
 		"Broken pipe"
 
 	c=0
