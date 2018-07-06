@@ -30,7 +30,7 @@ Its usage is straighforward, just requires wrapping ssh(1) options.
         $ aussh  -oServerAliveInterval=5 -oServerAliveCountMax=2  \
                 -n -fNL 10587:smtp.example.org:587 host
 
-	# typical use, start a ssh tunnel and reattach a tmux session
+        # typical use, start a ssh tunnel and reattach a tmux session
         # using ~/.ssh/config for pulling options:
 
         Host irc
