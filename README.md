@@ -5,38 +5,42 @@ a persistent SSH tunnel. it monitors and restarts ssh sessions by using
 builtin ssh features ServerAliveInterval/ServerAliveCountMax. Intended
 to run with tmux sessions, it's fine for monitoring background tunnels
 \`ssh -f' though. this code came up since i was looking for a solution
-for reconnecting all ssh tunnels when OS's coming from a long \`ZZZ'
+for reconnecting all ssh tunnels when resuming from \`ZZZ(8)'
 apm hibernation or changing network.
 
-its usage is straightforward, just requires wrapping the ssh options.
+It uses ssh(1)/ServerAliveInterval to send a message through the encrypted
+channel to request a response from the server, and ssh(1)/ServerAliveCountMax
+to set the number of server alive messages which may be sent without ssh(1)
+receiving any messages back from the server. see ssh_config(5) manpage for
+futher details.
+
+For background tunnel -n flag must be used, it prevents reading from
+stdin and ssh(1) does not work if it needs to ask for a password or
+passphase, so for using `ssh -f' is required to use public keys
+autehtication, see ssh-agent(1).
+
+Its usage is straighforward, just requires wrapping ssh(1) options.
 
 ### usage
 
-start a ssh tunnel:
+        # start a ssh tunnel
+        $ aussh host -oServerAliveInterval=5 -oServerAliveCountMax=2
 
-        $ aussh host
+        # typical use, start a ssh tunnel and reattach a tmux session
+        $ aussh host -oServerAliveInterval=5 -oServerAliveCountMax=2 -oRequestTTY=yes \\
+                -oRemoteCommand="tmux attach-session -t session-name || tmux new"
 
-typical use, start a ssh tunnel and reattach a tmux session:
- 
-        $ env TTMUX=1 aussh host
+        # pushing ssh process to background
+        $ aussh  -oServerAliveInterval=5 -oServerAliveCountMax=2  \\
+                -n -fNL 10587:smtp.example.org:587 host
 
- pushing ssh process to background:
- 
-        $ aussh -L 1050:localhost:1050 -f -N torproxy.example.org
+        # using ~/.ssh/config for pulling options:
 
-by default, it sets a short timeout, this behaviour can be changed by
-setting NO_DEFAULT_TIMEOUT and passing ServerAliveInterval/ServerAliveCountMax
-either on command line or ~/.ssh/config:
+        Host irc
+        HostName host.org
+        ServerAliveInterval 5
+        ServerAliveCountMax 2
+        RequestTTY yes
+        RemoteCommand tmux attach-session -t irssi || tmux new-session -s irssi
 
-        $ env NO_DEFAULT_TIMEOUT=1 aussh -oServerAliveInterval=30 \
-                -oServerAliveCountMax=3  -L 10587:smtp.example.org:587 -f -N host
-
-or pulling from ~/ssh/config:
-
-        Host    smtp
-        HostName       host
-        ServerAliveInterval 30
-        ServerAliveCountMax 3
-        LocalForward 10587 smtp.example.com:587
-
-        $ env NO_DEFAULT_TIMEOUT=1 aussh -f -N smtp
+        Finally, $ aussh irc

@@ -1,78 +1,11 @@
 #!/bin/ksh
 
-# Copyright (c) 2018 Gleydson Soares <gsoares@trusted.com.br>
-#
-# Permission to use, copy, modify, and distribute this software for any
-# purpose with or without fee is hereby granted, provided that the above
-# copyright notice and this permission notice appear in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-# aussh is an overly simple wrapper script for ssh that aims to maintain 
-# a persistent SSH tunnel. it monitors and restarts ssh sessions by using
-# builtin ssh features ServerAliveInterval/ServerAliveCountMax. Intended
-# to run with tmux sessions, it's fine for monitoring background tunnels 
-# `ssh -f' though. this code came up since i was looking for a solution 
-# for reconnecting all ssh tunnels when OS's coming from a long `ZZZ' 
-# apm hibernation or changing network.
-
-# its usage is straightforward, just requires wrapping the ssh options 
-# with aussh.
-#
-# start a ssh tunnel:
-# 	$ aussh host
-#
-# typical use, start a ssh tunnel and reattach a tmux session:
-# 	$ env TTMUX=1 aussh host
-#
-# pushing ssh process to background:
-# 	$ aussh -L 1050:localhost:1050 -f -N torproxy.example.org
-#
-# by default, it sets a short timeout, this behaviour can be changed by 
-# setting NO_DEFAULT_TIMEOUT and passing ServerAliveInterval/ServerAliveCountMax 
-# either on command line or ~/.ssh/config:
-#
-#	$ env NO_DEFAULT_TIMEOUT=1 aussh -oServerAliveInterval=30 \
-#		-oServerAliveCountMax=3  -L 10587:smtp.example.org:587 -f -N host
-#
-# or pulling from ~/ssh/config: 
-#
-#	Host	smtp
-#	HostName	host
-#	ServerAliveInterval 30
-#	ServerAliveCountMax 3
-#	LocalForward 10587 smtp.example.org:587
-#
-#	$ env NO_DEFAULT_TIMEOUT=1 aussh -f -N smtp
-
 #set -x
-
-# aggressive timeout
-_interval=5
-_countmax=2
 
 _ssh_bg=""	# background, ssh -f
 _out=""		# nohup output
 
-opts="-oServerAliveInterval=${_interval} -oServerAliveCountMax=${_countmax}"
-
-if [ -n "${NO_DEFAULT_TIMEOUT}" ]; then
-	opts=''
-fi
-
-if [ -n "${TTMUX}" ]; then
-	opts=${opts}" -oRequestTTY=yes \
-		-oRemoteCommand=\"tmux attach -t ${TTMUX} || tmux new\""
-fi
-
-args=$@
-_command="ssh ${opts} ${args}"
+_command="ssh ${@}"
 
 usage() {
 	cat <<EOF
@@ -81,14 +14,13 @@ usage:
 	$ aussh host
 
 	# typical use, start a ssh tunnel and reattach a tmux session
-	$ env TTMUX=1 aussh host
+	$ aussh host -oServerAliveInterval=5 -oServerAliveCountMax=2 -oRequestTTY=yes \\
+		-oRemoteCommand="tmux attach-session -t session-name || tmux new"
 
 	# pushing ssh process to background
-	$ aussh -L 1050:localhost:1050 -f -N torproxy.example.org
+	$ aussh  -oServerAliveInterval=5 -oServerAliveCountMax=2  \\
+		-n -fNL 10587:smtp.example.org:587 host
 
-	# change defaults by setting a customized timeout
-	$ env NO_DEFAULT_TIMEOUT=1 aussh -oServerAliveInterval=30 \\
-		-oServerAliveCountMax=3  -L 10587:smtp.example.org:587 -f -N host
 
 EOF
 	exit 1
@@ -96,10 +28,10 @@ EOF
 
 # ssh_connect()
 connect() {
-	eval $_command
+	$_command
 	if [ "$?" -eq 255 ]; then
 		sleep 5
-		echo "aussh: trying to reconnect"
+		echo "${0}: trying to reconnect"
 		connect
 	fi
 }
@@ -111,10 +43,10 @@ ssh_connect() {
 }
 
 ssh_bg_islistening() {
-	grep "cannot listen to port" ${_out#>}
+	grep "cannot listen to port" ${_out}
 	if [ "$?" -eq 0 ]; then
 		pkill -n -f "${_command}"
-		rm -f ${_out#>}
+		rm -f ${_out}
 		exit 1
 	fi
 }
@@ -129,14 +61,14 @@ ssh_bg_monitor_out() {
 		"Operation timed out" \
 		"Broken pipe"
 
-	c=0
-	for i in "${monitor_str[@]}"; do
-		RET=$(grep "${monitor_str[$c]}" ${_out#>})
+	c=${#monitor_str}
+	while [[ $c -ge 0 ]]; do
+		RET=$(grep "${monitor_str[$c]}" ${_out})
 		if [ -n "$RET" ]; then
 			echo "$RET"
 			break
 		fi
-		c=$((c+1))
+		c=$((c-1))
 	done
 	echo "$RET"
 }
@@ -148,19 +80,19 @@ ssh_bg_mktemp() {
 	fi
 	_tmpfile=$(mktemp "${_tmpdir}"/aussh.XXXXXXXXXX) || exit 1
 	chmod 0600 ${_tmpfile} || exit 1
-	_out='>'$_tmpfile
+	_out=${_tmpfile}
 }
 
 ssh_bg_connect() {
 	RET=''
 	ssh_bg_mktemp
-	eval nohup $_command </dev/null ${_out} &
+	nohup $_command </dev/null >${_out} &
 	wait
 	ssh_bg_islistening
 	while true; do
 		RET=$(ssh_bg_monitor_out)
 		if [ -n "$RET" ]; then
-			eval nohup $_command </dev/null ${_out} &
+			nohup $_command </dev/null >${_out} &
 			wait
 			ssh_bg_islistening
 			sleep 5
