@@ -89,9 +89,8 @@ ssh_bg_connect() {
 		RET=$(ssh_bg_monitor_out)
 		if [ -n "$RET" ]; then
 			nohup $_command </dev/null >${_out} &
-			wait
-			ssh_bg_islistening
 			sleep 5
+			ssh_bg_islistening
 		fi
 		sleep 5
 	done &
