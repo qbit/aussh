@@ -10,17 +10,13 @@ _command="ssh ${@}"
 usage() {
 	cat <<EOF
 usage: 
-	# start a ssh tunnel
-	$ aussh host
 
-	# typical use, start a ssh tunnel and reattach a tmux session
-	$ aussh host -oServerAliveInterval=5 -oServerAliveCountMax=2 -oRequestTTY=yes \\
-		-oRemoteCommand="tmux attach-session -t session-name || tmux new"
+        # start a ssh tunnel
+        $ aussh host -oServerAliveInterval=5 -oServerAliveCountMax=2
 
-	# pushing ssh process to background
-	$ aussh  -oServerAliveInterval=5 -oServerAliveCountMax=2  \\
-		-n -fNL 10587:smtp.example.org:587 host
-
+        # pushing ssh process to background
+        $ aussh  -oServerAliveInterval=5 -oServerAliveCountMax=2  \\
+                -n -fNL 10587:smtp.example.org:587 host
 
 EOF
 	exit 1

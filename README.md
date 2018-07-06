@@ -26,14 +26,11 @@ Its usage is straighforward, just requires wrapping ssh(1) options.
         # start a ssh tunnel
         $ aussh host -oServerAliveInterval=5 -oServerAliveCountMax=2
 
-        # typical use, start a ssh tunnel and reattach a tmux session
-        $ aussh host -oServerAliveInterval=5 -oServerAliveCountMax=2 -oRequestTTY=yes \
-                -oRemoteCommand="tmux attach-session -t session-name || tmux new"
-
         # pushing ssh process to background
         $ aussh  -oServerAliveInterval=5 -oServerAliveCountMax=2  \
                 -n -fNL 10587:smtp.example.org:587 host
 
+	# typical use, start a ssh tunnel and reattach a tmux session
         # using ~/.ssh/config for pulling options:
 
         Host irc
