@@ -107,6 +107,8 @@ done
 shift $((OPTIND-1))
 [ $# -gt 0 ] || usage
 
+trap "" HUP
+
 if [ -n "$_ssh_bg" ]; then
 	ssh_bg_connect
 else
