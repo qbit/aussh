@@ -81,6 +81,7 @@ ssh_bg_mktemp() {
 
 ssh_bg_connect() {
 	RET=''
+	trap "" HUP TERM
 	ssh_bg_mktemp
 	nohup $_command </dev/null >${_out} &
 	wait
@@ -106,8 +107,6 @@ while getopts "1246abAB:c:e:fgi:kl:m:no:p:CD:E:F:GI:J:KL:MNO:PQ:R:S:TVw:W:XYyqst
 done
 shift $((OPTIND-1))
 [ $# -gt 0 ] || usage
-
-trap "" HUP
 
 if [ -n "$_ssh_bg" ]; then
 	ssh_bg_connect
